@@ -26,19 +26,4 @@ CONFIG += link_pkgconfig
 
 PKGCONFIG += xtst x11
 
-SOURCES += \
-        src/main.cpp \
-        src/keyboardwidget.cpp \
-        src/x11keyboard.cpp
-
-
-HEADERS += \
-        src/keyboardwidget.h \
-        src/x11keyboard.h
-
-FORMS += \
-        src/keyboardwidget.ui
-
-
-RESOURCES += \
-    src/keyboard.qrc
+include(VirtualKeyboard.pri)
