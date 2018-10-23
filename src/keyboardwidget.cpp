@@ -1,10 +1,17 @@
 #include "keyboardwidget.h"
 #include "ui_keyboardwidget.h"
 #include <QDebug>
-#include <QFile>
+#include <QMap>
+#include <QVector>
 
 #define SYMBOL_KEY_COUNT 29
 #define SYMBOL_PAGE_COUNT 2
+
+#define BUTTON_BG "QPushButton{background:#1E1B18}"
+#define BUTTON_BG_PRESSED "QPushButton{background: #181613;}"
+#define BUTTON_BG_HL "QPushButton{background:#80c342}"
+#define BUTTON_BG_HL_PRESSED "QPushButton{background:#486E25}"
+
 
 QChar symbols[SYMBOL_PAGE_COUNT][SYMBOL_KEY_COUNT] =
               { {'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p',
@@ -23,21 +30,14 @@ KeyboardWidget::KeyboardWidget(QWidget *parent) :
     page(0)
 {
     vKeyboard = new X11Keyboard(this);
-    connect(this, SIGNAL(keyPressed(QChar)), vKeyboard, SLOT(onKeyPressed(QChar)));
-    connect(this, SIGNAL(keyPressed(FuncKey)), vKeyboard, SLOT(onKeyPressed(FuncKey)));
+    connect(this, SIGNAL(keyPressed(QChar)),
+            vKeyboard, SLOT(onKeyPressed(QChar)));
+    connect(this, SIGNAL(keyPressed(FuncKey::FUNCKEY)),
+            vKeyboard, SLOT(onKeyPressed(FuncKey::FUNCKEY)));
 
     ui->setupUi(this);
-
-    setWindowFlags(Qt::FramelessWindowHint |
-                   Qt::WindowStaysOnTopHint |
-                   Qt::WindowDoesNotAcceptFocus);
-
-    QFile qssFile(":/qss/keyboard.qss");
-    qssFile.open(QIODevice::ReadOnly);
-    setStyleSheet(qssFile.readAll());
-    qssFile.close();
-
     bindSingal();
+    setDefaultIcon();
 }
 
 KeyboardWidget::~KeyboardWidget()
@@ -48,24 +48,30 @@ KeyboardWidget::~KeyboardWidget()
 void KeyboardWidget::resizeEvent(QResizeEvent */*event*/)
 {
     int w = width();
+    int h = height();
     int mainLeftMargin = ui->hl_main->contentsMargins().left();
     int mainRightMargin = ui->hl_main->contentsMargins().right();
+    int mainTopMargin = ui->hl_main->contentsMargins().left();
+    int mainBottomMargin = ui->hl_main->contentsMargins().right();
     int mainSpacing = ui->hl_main->spacing();
     int itemSpacing = ui->hl_1->spacing();
 
     int btnWidthCount = w - 11 * itemSpacing - mainSpacing- mainLeftMargin - mainRightMargin;
+    int btnHeightCount = h - 3 * itemSpacing - mainTopMargin - mainBottomMargin;
     double btnWidth = btnWidthCount / 12;
+    double btnHeight = btnHeightCount / 4;
     for(int i = 0; i <= 28; i++) {
         QString btnObjName = "btn_" + QString::number(i);
         QPushButton *btn = ui->page_letter->findChild<QPushButton*>(btnObjName);
-        btn->setFixedWidth(btnWidth);
+        btn->setFixedSize(btnWidth, btnHeight);
     }
-    ui->btn_backspace->setFixedWidth(btnWidth);
-    ui->btn_ctrl_l->setFixedWidth(btnWidth * 1.3);
-    ui->btn_ctrl_r->setFixedWidth(btnWidth * 1.3);
-    ui->btn_alt_l->setFixedWidth(btnWidth);
-    ui->btn_alt_r->setFixedWidth(btnWidth);
-    ui->btn_super->setFixedWidth(btnWidth);
+    ui->btn_ctrl_l->setFixedSize(btnWidth * 1.3, btnHeight);
+    ui->btn_ctrl_r->setFixedSize(btnWidth * 1.3, btnHeight);
+    ui->btn_alt_l->setFixedSize(btnWidth, btnHeight);
+    ui->btn_alt_r->setFixedSize(btnWidth, btnHeight);
+    ui->btn_super->setFixedSize(btnWidth, btnHeight);
+    ui->btn_shift_l->setFixedSize(btnWidth, btnHeight);
+    ui->spacer_2->changeSize(btnWidth / 2, 20);
 
 
     for(int i = 1; i <= 9; i++) {
@@ -83,6 +89,35 @@ void KeyboardWidget::resizeEvent(QResizeEvent */*event*/)
     ui->btn_down->setFixedWidth(btnWidth);
     ui->btn_left->setFixedWidth(btnWidth);
     ui->btn_right->setFixedWidth(btnWidth);
+
+    ui->btn_close->setFixedHeight(btnHeight);
+    ui->btn_letter->setFixedHeight(btnHeight);
+    ui->btn_symbol->setFixedHeight(btnHeight);
+    ui->btn_number->setFixedHeight(btnHeight);
+
+    setIconSize();
+}
+
+float hScale = 0.6;
+float wScale = hScale;
+#define SET_ICON_SIZE_SCALE(btn) \
+    ui->btn_##btn->setIconSize(QSize(ui->btn_##btn->width() * hScale, ui->btn_##btn->height() * wScale));
+
+#define SET_ICON_SIZE(btn) \
+    ui->btn_##btn->setIconSize(QSize(ui->btn_##btn->width(), ui->btn_##btn->height()));
+
+void KeyboardWidget::setIconSize()
+{
+    SET_ICON_SIZE_SCALE(backspace);
+    SET_ICON_SIZE_SCALE(enter);
+    SET_ICON_SIZE_SCALE(close);
+    SET_ICON_SIZE_SCALE(super);
+    SET_ICON_SIZE_SCALE(shift_l);
+    SET_ICON_SIZE_SCALE(shift_r);
+    SET_ICON_SIZE(up);
+    SET_ICON_SIZE(down);
+    SET_ICON_SIZE(left);
+    SET_ICON_SIZE(right);
 }
 
 void KeyboardWidget::bindSingal()
@@ -92,6 +127,8 @@ void KeyboardWidget::bindSingal()
             QPushButton *btn = static_cast<QPushButton*>(obj);
             btn->setFocusPolicy(Qt::NoFocus);
             connect(btn, &QPushButton::clicked, this, &KeyboardWidget::onButtonClicked);
+            connect(btn, &QPushButton::pressed, this, &KeyboardWidget::onButtonPressed);
+            connect(btn, &QPushButton::released, this, &KeyboardWidget::onButtonReleased);
         }
     }
     for(auto obj : ui->page_number->children()) {
@@ -99,6 +136,8 @@ void KeyboardWidget::bindSingal()
             QPushButton *btn = static_cast<QPushButton*>(obj);
             btn->setFocusPolicy(Qt::NoFocus);
             connect(btn, &QPushButton::clicked, this, &KeyboardWidget::onButtonClicked);
+            connect(btn, &QPushButton::pressed, this, &KeyboardWidget::onButtonPressed);
+            connect(btn, &QPushButton::released, this, &KeyboardWidget::onButtonReleased);
         }
     }
     ui->btn_close->setFocusPolicy(Qt::NoFocus);
@@ -119,7 +158,133 @@ void KeyboardWidget::bindSingal()
     connect(ui->btn_number, &QPushButton::clicked, this, [&] {
         ui->stackedWidget->setCurrentWidget(ui->page_number);
     });
-    connect(ui->btn_close, &QPushButton::clicked, this, &KeyboardWidget::close);
+    connect(ui->btn_close, &QPushButton::clicked,
+            this, &KeyboardWidget::aboutToClose);
+
+    connect(ui->btn_close, &QPushButton::pressed,
+            this, &KeyboardWidget::onButtonPressed);
+    connect(ui->btn_close, &QPushButton::released,
+            this, &KeyboardWidget::onButtonReleased);
+}
+
+void KeyboardWidget::setDefaultIcon()
+{
+    ui->btn_backspace->setIcon(QIcon(":/images/images/backspace.svg"));
+    ui->btn_enter->setIcon(QIcon(":/images/images/enter.svg"));
+    ui->btn_shift_l->setIcon(QIcon(":/images/images/capslock.svg"));
+    ui->btn_shift_r->setIcon(QIcon(":/images/images/capslock.svg"));
+    ui->btn_close->setIcon(QIcon(":/images/images/close.svg"));
+    ui->btn_super->setIcon(QIcon(":/images/images/super.svg"));
+    ui->btn_up->setIcon(QIcon(":/images/images/up.svg"));
+    ui->btn_down->setIcon(QIcon(":/images/images/down.svg"));
+    ui->btn_left->setIcon(QIcon(":/images/images/left.svg"));
+    ui->btn_right->setIcon(QIcon(":/images/images/right.svg"));
+}
+
+QString KeyboardWidget::getKeyName(QPushButton *btn)
+{
+    QString objName = btn->objectName();
+    int lastUnderline = objName.lastIndexOf('_');
+    int start = strlen("btn_");
+    int keyLength = lastUnderline - start;
+    QString keyName = objName.mid(start, keyLength);
+    return keyName;
+}
+
+void KeyboardWidget::changeFuncKeyStyle(QPushButton *btn, bool isPressed)
+{
+    QString modName = getKeyName(btn);
+    Modifier::MOD mod = Modifier::getModifier(modName);
+
+    if(vKeyboard->hasModifier(mod)) {
+        if(isPressed)
+            btn->setStyleSheet(BUTTON_BG_HL_PRESSED);
+        else
+            btn->setStyleSheet(BUTTON_BG_HL);
+    } else {
+        if(isPressed)
+            btn->setStyleSheet(BUTTON_BG_PRESSED);
+        else
+            btn->setStyleSheet(BUTTON_BG);
+    }
+}
+
+void KeyboardWidget::changeShitKeyStyle(QPushButton *btn, bool isPressed)
+{
+    if(page == 0){
+        if(isShift) {
+            if(capsLock){
+                if(isPressed) {
+                    btn->setStyleSheet(BUTTON_BG_HL_PRESSED);
+                    btn->setIcon(QIcon(":/images/images/capslock_click.svg"));
+                } else {
+                    btn->setStyleSheet(BUTTON_BG_HL);
+                    btn->setIcon(QIcon(":/images/images/capslock.svg"));
+                }
+            }
+            else {
+                if(isPressed)
+                    btn->setIcon(QIcon(":/images/images/capslock_hl_click.svg"));
+                else
+                    btn->setIcon(QIcon(":/images/images/capslock_hl.svg"));
+            }
+        } else {
+            if(isPressed)
+                btn->setIcon(QIcon(":/images/images/capslock_click.svg"));
+            else
+                btn->setIcon(QIcon(":/images/images/capslock.svg"));
+        }
+    }
+}
+
+
+void KeyboardWidget::changeDirectKeyStyle(QPushButton *btn, bool isPressed)
+{
+    QString keyName = getKeyName(btn);
+    FuncKey::FUNCKEY key = FuncKey::getKey(keyName);
+    if(key == FuncKey::UNKNOWN)
+        return;
+
+    QString iconName = QString(":/images/images/%1.svg").arg(keyName);
+    QString iconNamePressed = QString(":/images/images/%1_click.svg").arg(keyName);
+
+    if(isPressed)
+        btn->setIcon(QIcon(iconNamePressed));
+    else
+        btn->setIcon(QIcon(iconName));
+}
+
+/**
+ * @brief 修改按键样式
+ * @param obj 按键
+ * @param isPressed 按下或者松开
+ */
+void KeyboardWidget::changeKeyStyle(QPushButton *btn, bool isPressed)
+{
+    if(btn == ui->btn_ctrl_l || btn == ui->btn_ctrl_r ||
+            btn == ui->btn_alt_l || btn == ui->btn_alt_r ||
+            btn == ui->btn_super) {
+        changeFuncKeyStyle(btn, isPressed);
+    }
+
+    if(btn == ui->btn_shift_l)
+        changeShitKeyStyle(ui->btn_shift_l, isPressed);
+    if(btn == ui->btn_shift_r)
+        changeShitKeyStyle(ui->btn_shift_r, isPressed);
+
+    changeDirectKeyStyle(btn, isPressed);
+}
+
+void KeyboardWidget::onButtonPressed()
+{
+    QPushButton *btn = static_cast<QPushButton*>(sender());
+    changeKeyStyle(btn, true);
+}
+
+void KeyboardWidget::onButtonReleased()
+{
+    QPushButton *btn = static_cast<QPushButton*>(sender());
+    changeKeyStyle(btn, false);
 }
 
 void KeyboardWidget::onButtonClicked()
@@ -129,16 +294,20 @@ void KeyboardWidget::onButtonClicked()
         return;
 
     QPushButton *btn = static_cast<QPushButton*>(obj);
-    QString objName = btn->objectName();
-    QString keyName = objName.right(objName.length() - 4);
+    QString keyName = getKeyName(btn);
     qDebug() << "keyName: " << keyName;
 
-    if(keyName == "shift_l" || keyName == "shift_r") {
+    Modifier::MOD mod = Modifier::getModifier(keyName);
+    FuncKey::FUNCKEY funcKey = FuncKey::getKey(keyName);
+
+    if(keyName == "shift") {
         if(page == 0) {
             isShift = !isShift;
             if(isShift) {     //第一次被按下
                 capsLock = false;
                 shiftLastClicked = QTime::currentTime();
+                ui->btn_shift_l->setIcon(QIcon(":/images/images/capslock_hl.svg"));
+                ui->btn_shift_r->setIcon(QIcon(":/images/images/capslock_hl.svg"));
             }
             else {
                 int doubleClickInterval = QApplication::doubleClickInterval();
@@ -146,57 +315,35 @@ void KeyboardWidget::onButtonClicked()
                     //shift键双击，锁定大写
                     capsLock = true;
                     isShift = true;
+                    ui->btn_shift_l->setIcon(QIcon(":/images/images/capslock.svg"));
+                    ui->btn_shift_r->setIcon(QIcon(":/images/images/capslock.svg"));
+                    ui->btn_shift_l->setStyleSheet("QPushButton{background:#80c342}");
+                    ui->btn_shift_r->setStyleSheet("QPushButton{background:#80c342}");
+                } else {
+                    ui->btn_shift_l->setIcon(QIcon(":/images/images/capslock.svg"));
+                    ui->btn_shift_r->setIcon(QIcon(":/images/images/capslock.svg"));
+                    ui->btn_shift_l->setStyleSheet("QPushButton{background:#1e1b18}");
+                    ui->btn_shift_r->setStyleSheet("QPushButton{background:#1e1b18}");
                 }
             }
-            qDebug() << isShift;
-            if(isShift)
-                vKeyboard->addModifier(SHIFT);
-            else
-                vKeyboard->removeModifier(SHIFT);
             toggleCase();
         } else {
             page = page % (SYMBOL_PAGE_COUNT - 1) + 1;
             switchPage();
         }
-    } else if(keyName == "switch") {
-        if(page == 0)
-            page = 1;
-        else
-            page = 0;
-        switchPage();
-    } else if(keyName == "ctrl_l" || keyName == "ctrl_r")
-        vKeyboard->addModifier(CTRL);
-    else if(keyName == "alt_l" || keyName == "alt_r")
-        vKeyboard->addModifier(ALT);
-    else if(keyName == "super")
-        vKeyboard->addModifier(SUPER);
-    else if(keyName == "space")
-        Q_EMIT keyPressed(SPACE);
-    else if(keyName == "backspace")
-        Q_EMIT keyPressed(BACKSPACE);
-    else if(keyName == "enter")
-        Q_EMIT keyPressed(ENTER);
-    else if(keyName == "insert")
-        Q_EMIT keyPressed(INSERT);
-    else if(keyName == "delete")
-        Q_EMIT keyPressed(DELETE);
-    else if(keyName == "home")
-        Q_EMIT keyPressed(HOME);
-    else if(keyName == "end")
-        Q_EMIT keyPressed(END);
-    else if(keyName == "pgup")
-        Q_EMIT keyPressed(PGUP);
-    else if(keyName == "pgdn")
-        Q_EMIT keyPressed(PGDN);
-    else if(keyName == "up")
-        Q_EMIT keyPressed(UP);
-    else if(keyName == "down")
-        Q_EMIT keyPressed(DOWN);
-    else if(keyName == "left")
-        Q_EMIT keyPressed(LEFT);
-    else if(keyName == "right")
-        Q_EMIT keyPressed(RIGHT);
-    else {    //字符键
+    } else if(mod != Modifier::UNKNOWN) {
+        if(vKeyboard->hasModifier(mod)) {
+            vKeyboard->removeModifier(mod);
+            btn->setStyleSheet(BUTTON_BG);
+            btn->setStyleSheet(BUTTON_BG);
+        } else {
+            vKeyboard->addModifier(mod);
+            btn->setStyleSheet(BUTTON_BG_HL);
+            btn->setStyleSheet(BUTTON_BG_HL);
+        }
+    } else if(funcKey != FuncKey::UNKNOWN) {
+        Q_EMIT keyPressed(funcKey);
+    } else {    //字符键
         QChar c;
         QString text = btn->text();
         qDebug() << "clicked button text: " << text;
@@ -210,10 +357,32 @@ void KeyboardWidget::onButtonClicked()
         //如果shift键被单击，按一个键后就恢复为小写
         if(isShift && !capsLock) {
             isShift = false;
-            vKeyboard->removeModifier(SHIFT);
             toggleCase();
+            changeShitKeyStyle(ui->btn_shift_l, false);
+            changeShitKeyStyle(ui->btn_shift_r, false);
+        }
+        clearModifier();
+    }
+}
+
+void KeyboardWidget::clearModifier()
+{
+    for(auto mod : vKeyboard->getAllModifier()) {
+        QString modName = Modifier::getModifierName(mod);
+        if(mod == Modifier::SUPER) {
+            QString objName = QString("btn_%1").arg(modName);
+            QPushButton *btn = ui->page_letter->findChild<QPushButton*>(objName);
+            btn->setStyleSheet(BUTTON_BG);
+        } else {
+            QString objName = QString("btn_%1_l").arg(modName);
+            QPushButton *btn = ui->page_letter->findChild<QPushButton*>(objName);
+            btn->setStyleSheet(BUTTON_BG);
+            objName = QString("btn_%1_r").arg(modName);
+            btn = ui->page_letter->findChild<QPushButton*>(objName);
+            btn->setStyleSheet(BUTTON_BG);
         }
     }
+    vKeyboard->clearModifier();
 }
 
 void KeyboardWidget::toggleCase()
@@ -234,12 +403,16 @@ void KeyboardWidget::toggleCase()
 void KeyboardWidget::switchPage()
 {
     if(page == 0) {
-        ui->btn_shift_l->setText("Shift");
-        ui->btn_shift_r->setText("Shift");
+        ui->btn_shift_l->setText("");
+        ui->btn_shift_r->setText("");
+        ui->btn_shift_l->setIcon(QIcon(":/images/images/capslock.svg"));
+        ui->btn_shift_r->setIcon(QIcon(":/images/images/capslock.svg"));
     } else {
         QString text = QString("%1/%2").arg(page).arg(SYMBOL_PAGE_COUNT - 1);
         ui->btn_shift_l->setText(text);
         ui->btn_shift_r->setText(text);
+        ui->btn_shift_l->setIcon(QIcon());
+        ui->btn_shift_r->setIcon(QIcon());
     }
 
     for(int i = 0; i < SYMBOL_KEY_COUNT; i++) {

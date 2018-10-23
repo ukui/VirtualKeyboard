@@ -27,13 +27,25 @@ private:
     void bindSingal();
     void toggleCase();
     void switchPage();
+    void setDefaultIcon();
+    void setIconSize();
+    void changeKeyStyle(QPushButton *btn, bool isPressed);
+    void changeFuncKeyStyle(QPushButton *btn, bool isPressed);
+    void changeShitKeyStyle(QPushButton *btn, bool isPressed);
+    void changeDirectKeyStyle(QPushButton *btn, bool isPressed);
+    void clearModifier();
+    QString getKeyName(QPushButton *btn);
 
-private slots:
+
+private Q_SLOTS:
     void onButtonClicked();
+    void onButtonPressed();
+    void onButtonReleased();
 
-signals:
+Q_SIGNALS:
+    void aboutToClose();
     void keyPressed(QChar c);
-    void keyPressed(FuncKey key);
+    void keyPressed(FuncKey::FUNCKEY key);
 
 private:
     Ui::KeyboardWidget      *ui;

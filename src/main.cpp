@@ -1,13 +1,13 @@
-#include "keyboardwidget.h"
+#include "virtualkeyboard.h"
 #include <QApplication>
-
 
 int main(int argc, char *argv[])
 {
-    qputenv("QT_IM_MODULE", QByteArray("qtvirtualkeyboard"));
+//    qputenv("QT_IM_MODULE", QByteArray("qtvirtualkeyboard"));
     QApplication a(argc, argv);
-    KeyboardWidget w;
-    w.show();
+    VirtualKeyboard *keyboard = new VirtualKeyboard;
+    QObject::connect(keyboard, &VirtualKeyboard::aboutToClose, &a, &QApplication::quit);
+    keyboard->show();
 
     return a.exec();
 }

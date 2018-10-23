@@ -48,27 +48,27 @@ struct CharMap XSpecialSymbolMap[] {
     {'\\',  XK_backslash},
 };
 
-QMap<FuncKey, KeySym> funckeyMap = {
-    {SPACE,     XK_space},
-    {BACKSPACE, XK_BackSpace},
-    {ENTER,     XK_Return},
-    {HOME,      XK_Home},
-    {END,       XK_End},
-    {PGUP,      XK_Page_Up},
-    {PGDN,      XK_Page_Down},
-    {INSERT,    XK_Insert},
-    {DELETE,    XK_Delete},
-    {UP,        XK_Up},
-    {DOWN,      XK_Down},
-    {LEFT,      XK_Left},
-    {RIGHT,     XK_Right}
+QMap<FuncKey::FUNCKEY, KeySym> funckeyMap = {
+    {FuncKey::SPACE,     XK_space},
+    {FuncKey::BACKSPACE, XK_BackSpace},
+    {FuncKey::ENTER,     XK_Return},
+    {FuncKey::HOME,      XK_Home},
+    {FuncKey::END,       XK_End},
+    {FuncKey::PGUP,      XK_Page_Up},
+    {FuncKey::PGDN,      XK_Page_Down},
+    {FuncKey::INSERT,    XK_Insert},
+    {FuncKey::DELETE,    XK_Delete},
+    {FuncKey::UP,        XK_Up},
+    {FuncKey::DOWN,      XK_Down},
+    {FuncKey::LEFT,      XK_Left},
+    {FuncKey::RIGHT,     XK_Right}
 };
 
-QMap<Modifier, KeySym> modifierMap = {
-    {CTRL,  XK_Control_L},
-    {ALT,   XK_Alt_L},
-    {SUPER, XK_Super_L},
-    {SHIFT, XK_Shift_L}
+QMap<Modifier::MOD, KeySym> modifierMap = {
+    {Modifier::CTRL,    XK_Control_L},
+    {Modifier::ALT,     XK_Alt_L},
+    {Modifier::SUPER,   XK_Super_L},
+    {Modifier::SHIFT,   XK_Shift_L}
 };
 
 QVector<QChar> shiftKeyVec = {'~', '!', '@', '#', '$', '%', '^', '&', '*',
@@ -77,6 +77,7 @@ QVector<QChar> shiftKeyVec = {'~', '!', '@', '#', '$', '%', '^', '&', '*',
 
 static Display *display = XOpenDisplay(0);
 bool isShift = false;
+bool isLetter = false;
 unsigned int keyCodeOfChar(QChar c)
 {
     QString text(c);
@@ -94,10 +95,9 @@ unsigned int keyCodeOfChar(QChar c)
     }
     qDebug() << "keysym: " << keysym;
 
-    if(shiftKeyVec.contains(c) || (c >= 'A' && c <= 'Z'))
-        isShift = true;
-    else
-        isShift = false;
+    isShift = shiftKeyVec.contains(c) || (c >= 'A' && c <= 'Z');
+
+    isLetter = c.isLetter();
 
     KeyCode code = XKeysymToKeycode(display, keysym);
 
@@ -115,14 +115,24 @@ X11Keyboard::~X11Keyboard()
     XCloseDisplay(display);
 }
 
-void X11Keyboard::addModifier(Modifier mod)
+void X11Keyboard::addModifier(Modifier::MOD mod)
 {
     modList.push_back(mod);
 }
 
-void X11Keyboard::removeModifier(Modifier mod)
+void X11Keyboard::removeModifier(Modifier::MOD mod)
 {
     modList.removeOne(mod);
+}
+
+bool X11Keyboard::hasModifier(Modifier::MOD mod)
+{
+    return modList.contains(mod);
+}
+
+QList<Modifier::MOD> X11Keyboard::getAllModifier()
+{
+    return modList;
 }
 
 void X11Keyboard::clearModifier()
@@ -137,7 +147,7 @@ void X11Keyboard::onKeyPressed(QChar c)
     sendKey(keyCode);
 }
 
-void X11Keyboard::onKeyPressed(FuncKey key)
+void X11Keyboard::onKeyPressed(FuncKey::FUNCKEY key)
 {
     KeyCode keyCode;
     KeySym keysym = funckeyMap[key];
@@ -158,6 +168,10 @@ void X11Keyboard::sendKey(unsigned int keyCode)
         KeyCode keyCode = XKeysymToKeycode(display, modifierMap[mod]);
         XTestFakeKeyEvent(display, keyCode, True, 2);
     }
+
+    //如果使用了修饰键（如ctrl、alt）且字符键是字母，则不起用shift键，否则快捷键不起作用
+    if(!modList.isEmpty() && isLetter)
+        isShift = false;
 
     if(isShift)
         XTestFakeKeyEvent(display, XKeysymToKeycode(display, XK_Shift_L), True, 2);
