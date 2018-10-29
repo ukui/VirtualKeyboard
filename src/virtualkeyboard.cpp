@@ -14,7 +14,6 @@ VirtualKeyboard::VirtualKeyboard(QWidget *parent)
 
     setWindowFlags(Qt::FramelessWindowHint |
                    Qt::WindowStaysOnTopHint |
-                   Qt::Tool | Qt::X11BypassWindowManagerHint |
                    Qt::WindowDoesNotAcceptFocus);
 
 
