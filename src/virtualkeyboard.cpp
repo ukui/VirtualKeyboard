@@ -7,6 +7,8 @@
 VirtualKeyboard::VirtualKeyboard(QWidget *parent)
     : QWidget(parent)
 {
+    Q_INIT_RESOURCE(keyboard);
+
     setAutoFillBackground(true);
     QPalette plt;
     plt.setBrush(QPalette::Background, Qt::black);
