@@ -24,7 +24,8 @@ VirtualKeyboard::VirtualKeyboard(QWidget *parent)
     QSpacerItem *spacer = new QSpacerItem(40, 20);
     hl_keyboard->addSpacerItem(spacer);
     hl_keyboard->addWidget(keyboardWidget);
-    hl_keyboard->addSpacerItem(spacer);
+    QSpacerItem *spacer2 = new QSpacerItem(40, 20);
+    hl_keyboard->addSpacerItem(spacer2);
 
     QFile qssFile(":/qss/keyboard.qss");
     qssFile.open(QIODevice::ReadOnly);
